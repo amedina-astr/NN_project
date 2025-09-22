@@ -1,0 +1,81 @@
+{
+  "seed": 2,
+  "ranges": {
+    "teff_range": [
+      700,
+      1400
+    ],
+    "logg_range": [
+      4.0,
+      5.5
+    ],
+    "fsed_range": [
+      0.5,
+      5.0
+    ],
+    "kzz_range": [
+      10000000.0,
+      100000000000.0
+    ]
+  },
+  "use_clouds": true,
+  "R": 300,
+  "wavmin": 1.0,
+  "wavmax": 2.5,
+  "failures": [
+    [
+      1,
+      "Wavelength grid changed"
+    ],
+    [
+      2,
+      "Wavelength grid changed"
+    ],
+    [
+      3,
+      "Wavelength grid changed"
+    ],
+    [
+      4,
+      "Wavelength grid changed"
+    ],
+    [
+      5,
+      "Wavelength grid changed"
+    ],
+    [
+      6,
+      "Wavelength grid changed"
+    ],
+    [
+      7,
+      "Wavelength grid changed"
+    ],
+    [
+      8,
+      "Wavelength grid changed"
+    ],
+    [
+      9,
+      "Wavelength grid changed"
+    ]
+  ],
+  "stats": {
+    "X_mean": [
+      977.9249267578125,
+      4.76494026184082,
+      2.814162254333496,
+      10112979968.0
+    ],
+    "X_std": [
+      183.831298828125,
+      0.34979501366615295,
+      1.2830044031143188,
+      12757430272.0
+    ],
+    "Y_mean": 7.307971117143097e-08,
+    "Y_std": 7.30721154695857e-08,
+    "Ylog_mean": -16.949527740478516,
+    "Ylog_std": 1.0951342582702637
+  }
+}
