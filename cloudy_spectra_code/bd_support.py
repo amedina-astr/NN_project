@@ -1,93 +1,68 @@
-# tp_correction.py
-# Utilities to load and apply Bobcat to Diamondback (Peter TP correction factors)
+# bd_support.py
+# To load and apply Bobcat to Diamondback (Peter TP correction factors)
 
-from __future__ import annotations
+# Imports
+import re
 import pickle
 import numpy as np
-import re
-from typing import Sequence, Tuple
+from scipy.interpolate import RegularGridInterpolator
+
+pickl_path  = r"C:\Users\Alex\Desktop\Picaso\NN_project\cloudy_spectra_code\bobcat_to_diamondback.pickle"
+# pickl_path  = "home/al864695/pickle"
 
 # For naming convention so not cluttered
 def format_kzz(k):
     """
     Return 'k2e9' style tag from a float like 2e10
     """
-    s = f"{float(k):.0e}"                  # e.g., '1e+09'
-    s = re.sub(r"e\+?0*", "e", s)          # '1e+09' -> '1e9', '2e+10' -> '2e10'
-    return f"k{s}"                         # 'k1e9'
+    s = f"{float(k):.0e}"            # e.g., '1e+09'
+    s = re.sub(r"e\+?0*", "e", s)    # '1e+09' -> '1e9', '2e+10' -> '2e10'
+    return f"k{s}"                   # 'k1e9'
 
-# For correct TP profile
-class TPCorrection:
+# The pickle is a numpy array of shape [301, 41, 5, 91]
+# From Theodora code
+# 301 corresponds to teff from [900, 2400] at 5 K steps
+# 41 corresponds to logg from [3.50, 5.50] at 0.05 steps
+# 5 corresponds to fsed from [1, 2, 3, 4, 8]
+# 91 corresponds to 91 layers
+# Each entry is a temp? correction factor for that layer
+
+# Load and define axes
+corrp  = pickle.load(open(pickl_path, "rb"))           # shape (301, 41, 5, 91)
+taxis  = np.arange(900.0, 2405.0, 5.0)                 # 900..2400 (step 5)
+gaxis  = np.round(np.arange(3.50, 5.54, 0.05), 3)      # 3.50..5.50 (step 0.05)
+faxis  = np.array([1.0, 2.0, 3.0, 4.0, 8.0])           # fsed axis
+
+# Pickle interpolation is still discrete?
+# So for random sampling, it wouldn't quite work
+# Or even out of range?
+
+# Let's see
+# Only fsed is not interpolated so that can be reference axis
+# Do all sonora profiles have 91 layers?
+
+def inject_corr(bd, Teff, logg, fsed):
     """
-    Load correction factors and apply them to a PICASO inputs object.
-
-    The shape is n_Teff, n_g, n_fsed, n_layers) which describes
-    corr_facs[temps, gravs, fsed, 91].
+    Apply Diamondback/Bobcat TP correction to PICASO inputs in-place.
+    Multiplies the current temperature profile by a correction factor
+    interpolated over (Teff, logg) at nearest fsed. Safe to call only
+    when Teff/logg are in-range of the pickle axes.
     """
 
-    # Load pickle
-    def __init__(self, pickle_path: str):
-        with open(pickle_path, 'rb') as f:
-            arr = pickle.load(f)
-        self.corr = arr  # shape (nT, nG, nF, nL)
-        self.nT, self.nG, self.nF, self.nL = arr.shape
-        # Coordinate vectors must be supplied by the caller (see set_coords)
-        self._Teff = None
-        self._g = None
-        self._fsed = None
+    # Trial an error, it has to be in bounds
+    if not (taxis[0] <= Teff <= taxis[-1]) or not (gaxis[0] <= logg <= gaxis[-1]):
+        return ValueError(f"Teff/logg out of correction grid: Teff={Teff}, logg={logg}")
+    
+    # Choose the nearest fsed because no interpolation here
+    fi = int(np.argmin(np.abs(faxis - float(fsed))))
 
-    def set_coords(self, Teff_grid: Sequence[float], g_grid: Sequence[float], fsed_grid: Sequence[float]):
-        """
-        Attach the coordinate vectors that correspond to the correction array axes.
+    # For values like random sampling
+    # Interpolate over Teff and log g at that fsed
+    rgi = RegularGridInterpolator((taxis, gaxis), corrp[:, :, fi, :], bounds_error=True)
 
-        - Teff_grid: list/array of temperatures (K), length = nT
-        - g_grid: gravities in m s^-2, length = nG
-        - fsed_grid: list of fsed values, length = nF
-        """
-        Teff = np.asarray(Teff_grid)
-        g = np.asarray(g_grid)
-        f = np.asarray(fsed_grid)
-        if len(Teff) != self.nT or len(g) != self.nG or len(f) != self.nF:
-            raise ValueError("Coordinate lengths must match correction array dimensions: "
-                             f"{self.nT} (Teff), {self.nG} (g), {self.nF} (fsed)." )
-        self._Teff, self._g, self._fsed = Teff, g, f
+    # Interpolate
+    corr = rgi((Teff, logg)).ravel()  # (91,)
 
-    def _find_index(self, value: float, grid: np.ndarray) -> int:
-        # Bearest-neighbor index
-        # But **reject** extrapolation outside min/max
-        if value < grid.min() or value > grid.max():
-            raise ValueError(f"Requested value {value} is outside grid range [{grid.min()}, {grid.max()}]; "
-                             "extrapolation is not allowed.")
-        return int(np.argmin(np.abs(grid - value)))
-
-    def index_for(self, Teff: float, g: float, fsed: float) -> Tuple[int, int, int]:
-        if self._Teff is None:
-            raise RuntimeError("Call set_coords(...) first to provide axis coordinate arrays.")
-        iT = self._find_index(Teff, self._Teff)
-        iG = self._find_index(g, self._g)
-        iF = self._find_index(fsed, self._fsed)
-        return iT, iG, iF
-
-    def vector(self, Teff: float, g_mps2: float, fsed: float) -> np.ndarray:
-        iT, iG, iF = self.index_for(Teff, g_mps2, fsed)
-        return self.corr[iT, iG, iF, :]  # shape (nL,)
-
-    def apply_to_picaso_inputs(self, bd_inputs, Teff: float, g: float, fsed: float):
-        """
-        Apply correction to the temperature profile inside a PICASO inputs object (bd_inputs).
-
-        Parameters
-        ----------
-        bd_inputs : jdi.inputs object (already has .sonora(...) called)
-        Teff, g_mps2, fsed : float
-            Values used to pick the correction vector via nearest-neighbor (no extrapolation).
-        """
-        prof = bd_inputs.inputs['atmosphere']['profile']
-        T = np.asarray(prof['temperature'], float)
-        corr = np.asarray(self.vector(Teff, g, fsed), float)
-        if len(T) != len(corr):
-            raise ValueError(f"Layer mismatch: PICASO T has length {len(T)} but correction has {len(corr)}.")
-        Tcorr = T * corr
-
-        bd_inputs.inputs['atmosphere']['profile']['temperature'] = Tcorr.tolist()
-        return Tcorr
+    prof = bd.inputs["atmosphere"]["profile"]
+    T = np.asarray(prof["temperature"], float)
+    prof["temperature"] = (T * corr).tolist()
