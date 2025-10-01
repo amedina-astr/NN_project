@@ -17,7 +17,7 @@ def format_kzz(k):
     Return 'k2e9' style tag from a float like 2e10
     """
     s = f"{float(k):.0e}"            # e.g., '1e+09'
-    s = re.sub(r"e\+?0*", "e", s)    # '1e+09' -> '1e9', '2e+10' -> '2e10'
+    s = re.sub(r"e\+?0*", "e", s)    # '1e+09'to '1e9'
     return f"k{s}"                   # 'k1e9'
 
 # The pickle is a numpy array of shape [301, 41, 5, 91]
@@ -44,10 +44,9 @@ faxis  = np.array([1.0, 2.0, 3.0, 4.0, 8.0])           # fsed axis
 
 def inject_corr(bd, Teff, logg, fsed):
     """
-    Apply Diamondback/Bobcat TP correction to PICASO inputs in-place.
+    Apply Diamondback/Bobcat TP correction to PICASO inputs.
     Multiplies the current temperature profile by a correction factor
-    interpolated over (Teff, logg) at nearest fsed. Safe to call only
-    when Teff/logg are in-range of the pickle axes.
+    interpolated over (Teff, logg) at nearest fsed.
     """
 
     # Trial an error, it has to be in bounds
