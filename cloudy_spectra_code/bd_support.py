@@ -1,15 +1,20 @@
 # bd_support.py
 # To load and apply Bobcat to Diamondback (Peter TP correction factors)
 
-# Imports
+##### IMPORTS
+
 import re
 import pickle
 import numpy as np
 
 from scipy.interpolate import RegularGridInterpolator
 
+##### CONFIGURATIONS
+
 pickl_path  = r"C:\Users\Alex\Desktop\Picaso\NN_project\cloudy_spectra_code\bobcat_to_diamondback.pickle"
 # pickl_path  = "home/al864695/pickle"
+
+##### HELPER METHODS
 
 # For naming convention so not cluttered
 def format_kzz(k):
