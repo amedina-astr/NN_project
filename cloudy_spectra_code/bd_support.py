@@ -47,27 +47,30 @@ faxis  = np.array([1.0, 2.0, 3.0, 4.0, 8.0])           # fsed axis
 # Only fsed is not interpolated so that can be reference axis
 # Do all sonora profiles have 91 layers?
 
-def inject_corr(bd, Teff, logg, fsed):
+def inject_corr(bd, Teff, logg, fsed, clip_oob=True):
     """
     Apply Diamondback/Bobcat TP correction to PICASO inputs.
     Multiplies the current temperature profile by a correction factor
     interpolated over (Teff, logg) at nearest fsed.
     """
-
-    # Trial an error, it has to be in bounds
-    if not (taxis[0] <= Teff <= taxis[-1]) or not (gaxis[0] <= logg <= gaxis[-1]):
-        return ValueError(f"Teff/logg out of correction grid: Teff={Teff}, logg={logg}")
-    
-    # Choose the nearest fsed because no interpolation here
+    # Choose the nearest fsed because since interpolation here
     fi = int(np.argmin(np.abs(faxis - float(fsed))))
+
+    # Clip Teff/logg to grid so out of bound values still gets a correction
+    # Extrapolation but we'll see
+    Teff_in = float(np.clip(Teff, taxis[0], taxis[-1])) if clip_oob else float(Teff)
+    logg_in = float(np.clip(logg, gaxis[0], gaxis[-1])) if clip_oob else float(logg)
 
     # For values like random sampling
     # Interpolate over Teff and log g at that fsed
-    rgi = RegularGridInterpolator((taxis, gaxis), corrp[:, :, fi, :], bounds_error=True)
-
+    rgi = RegularGridInterpolator((taxis, gaxis),
+                                  corrp[:, :, fi, :],
+                                  bounds_error=not clip_oob,
+                                  fill_value=None)
+    
     # Interpolate
-    corr = rgi((Teff, logg)).ravel()  # (91,)
+    corr = rgi((Teff_in, logg_in)).ravel()
 
     prof = bd.inputs["atmosphere"]["profile"]
-    T = np.asarray(prof["temperature"], float)
+    T    = np.asarray(prof["temperature"], float)
     prof["temperature"] = (T * corr).tolist()
