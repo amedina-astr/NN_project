@@ -1,4 +1,4 @@
-# bd_spectragen_cloud_select.py
+# %%
 ##### IMPORTS
 
 import os
@@ -11,30 +11,21 @@ import astropy.units as u
 import bd_support as sup
 
 from pathlib import Path
-from itertools import product
 
 # Picaso and Virga
 from picaso import justdoit as jdi
 from virga import justdoit as vj
 
-# To see what clouds are availible
-# vj.available()
-
-
 ##### CONFIGURATIONS
 
 # Directories
-sonor_path  = r'C:\Users\Alex\Desktop\Picaso\data\sonora' # Sonora db
-# sonor_path  = '/groups/tkaralidi/pbraunschweig/training_set/profiles/'
-virga_path  = r'C:\Users\Alex\Desktop\Picaso\data\virga'  # Virga
-# virga_path  = '/home/sa221179/picaso/virga/'
-opaci_path  = None # Opacity db
-# opcai_path  = '/groups/tkaralidi/opacity_500k_for_R5000_egpoutput.db'
-output_path = Path(r"C:\Users\Alex\Desktop\Picaso\NN_project\outputs")
-# output_path = 'home/al864695/ouputs'
+sonor_path  = '/groups/tkaralidi/pbraunschweig/training_set/profiles/'
+virga_path  = '/home/sa221179/picaso/virga/'
+opaci_path  = '/groups/tkaralidi/opacity_500k_for_R5000_egpoutput.db'
+output_path = '/home/al864695/rand_ouputs/'
 
 # Constant values
-wav_range   = [0.5, 15.0] # microns
+wav_range   = [0.3, 5.0] # microns
 MH          = 1.0        # [M/H] metallicity factor ~ solar
 MU          = 2.36       # Average MU
 R           = 300        # resolution
@@ -44,7 +35,7 @@ R           = 300        # resolution
 cloud_dict  = {'Fe': '1', 'H2O': '2', 'KCl': '3', 'Mg2SiO4': '4',
                'MgSiO3': '5', 'MnS': '6', 'NH3': '7', 'Na2S': '8'}
 
-
+# %%
 ##### METHOD BROWN DWARF SPECTRUM=
 
 def bd_spectrum(Teff, logg, fsed, kzz):
@@ -91,20 +82,26 @@ def bd_spectrum(Teff, logg, fsed, kzz):
     wn, fl = jdi.mean_regrid(wn, fl, R=R)
 
     # Convert wavenumber [cm^-1] to wavelength [micron]
-    #w_um = 1e4 / wn
+    # w_um = 1e4 / wn
 
     return fl, cl_names
 
-
 ##### GENERATE AND SAVE SPECTRUM (MARGE format, single-case files)
 
-Teff_s = [1253.027059]      # K
-grav_s = 1082.0568603568015
-logg_s = [np.log10(grav_s * 100)]  # log g cgs
-fsed_s = [2.0] 
-kzz_s  = [1e10]
+# Define ranges
+Teff_min, Teff_max = 1300, 1800
+logg_min, logg_max = 3.0, 5.0
+fsed_min, fsed_max = 2.0, 4.0
+kzz_min,  kzz_max  = 1e9, 1e10
 
-for Teff_i, logg_i, fsed_i, kzz_i in product(Teff_s, logg_s, fsed_s, kzz_s):
+N_samples = 50  # How many random points to draw
+
+Teff_s = np.random.uniform(Teff_min, Teff_max, N_samples)
+logg_s = np.random.uniform(logg_min, logg_max, N_samples)
+fsed_s = np.random.uniform(fsed_min, fsed_max, N_samples)
+kzz_s  = np.random.uniform(kzz_min , kzz_max , N_samples)
+
+for Teff_i, logg_i, fsed_i, kzz_i in zip(Teff_s, logg_s, fsed_s, kzz_s):
 
     # Run spectrum
     F_i, names = bd_spectrum(Teff_i, logg_i, fsed_i, kzz_i)
@@ -115,3 +112,5 @@ for Teff_i, logg_i, fsed_i, kzz_i in product(Teff_s, logg_s, fsed_s, kzz_s):
     fpath  = output_path / fname
 
     np.save(fpath, F_i)
+
+
